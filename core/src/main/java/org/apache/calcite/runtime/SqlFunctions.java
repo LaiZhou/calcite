@@ -2712,6 +2712,13 @@ public class SqlFunctions {
     }
   }
 
+  public static BigDecimal unaryMinus(BigDecimal a) {
+    if (a == null) {
+      return a;
+    }
+    return a.negate();
+  }
+
   private static RuntimeException toUnchecked(Exception e) {
     if (e instanceof RuntimeException) {
       return (RuntimeException) e;
