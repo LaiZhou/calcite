@@ -690,8 +690,8 @@ limitations under the License.
               <suppressionsLocation>${top.dir}/src/main/config/checkstyle/suppressions.xml</suppressionsLocation>
               <consoleOutput>true</consoleOutput>
               <headerLocation>${top.dir}/src/main/config/checkstyle/header.txt</headerLocation>
-              <failOnViolation>true</failOnViolation>
-              <includeTestSourceDirectory>true</includeTestSourceDirectory>
+              <failOnViolation>false</failOnViolation>
+              <includeTestSourceDirectory>false</includeTestSourceDirectory>
             </configuration>
             <goals>
               <goal>check</goal>
