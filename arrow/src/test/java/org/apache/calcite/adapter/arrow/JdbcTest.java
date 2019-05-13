@@ -13,6 +13,9 @@ public class JdbcTest {
 
   @Test
   public void all() throws SQLException, ClassNotFoundException {
+    System.out.println(2&0xffff0000);
+    System.out.println(2&0x0000ffff);
+
     Class.forName("org.apache.calcite.jdbc.Driver");
     try (Connection conn = DriverManager.getConnection("jdbc:calcite:model=target/classes/samples/model.json", "admin", "admin")) {
       PreparedStatement pstmt = conn.prepareStatement("select N_NATIONKEY, N_NAME, N_REGIONKEY from NATIONSSF");

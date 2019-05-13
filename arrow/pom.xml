@@ -43,7 +43,7 @@
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
-            <version>0.11.0</version>
+            <version>0.13.0</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -85,7 +85,7 @@
                             <goal>analyze-only</goal>
                         </goals>
                         <configuration>
-                            <failOnWarning>true</failOnWarning>
+                            <failOnWarning>false</failOnWarning>
                             <!-- ignore "unused but declared" warnings -->
                             <ignoredUnusedDeclaredDependencies>
                                 <!-- avatica-core is here because package-info.java doesn't get picked up by the maven-dependency-plugin,
