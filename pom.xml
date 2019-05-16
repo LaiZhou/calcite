@@ -161,6 +161,7 @@ limitations under the License.
   </scm>
 
   <modules>
+    <module>arrow</module>
     <module>babel</module>
     <module>cassandra</module>
     <module>core</module>
