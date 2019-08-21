@@ -1054,7 +1054,31 @@ public abstract class EnumerableDefaults {
         resultSelector,
         comparer,
         generateNullsOnLeft,
-        generateNullsOnRight);
+        generateNullsOnRight, null);
+  }
+
+  /**
+   * Correlates the elements of two sequences based on
+   * matching keys. A specified {@code EqualityComparer<TSource>} is used to
+   * compare keys.A predicate is used to filter the join result per-row.
+   */
+  public static <TSource, TInner, TKey, TResult> Enumerable<TResult> hashJoin(
+      Enumerable<TSource> outer, Enumerable<TInner> inner,
+      Function1<TSource, TKey> outerKeySelector,
+      Function1<TInner, TKey> innerKeySelector,
+      Function2<TSource, TInner, TResult> resultSelector,
+      EqualityComparer<TKey> comparer, boolean generateNullsOnLeft,
+      boolean generateNullsOnRight,
+      Predicate2<TSource, TInner> predicate) {
+    return hashJoin_(
+        outer,
+        inner,
+        outerKeySelector,
+        innerKeySelector,
+        resultSelector,
+        comparer,
+        generateNullsOnLeft,
+        generateNullsOnRight, predicate);
   }
 
   /** Implementation of join that builds the right input and probes with the
@@ -1065,20 +1089,30 @@ public abstract class EnumerableDefaults {
       final Function1<TInner, TKey> innerKeySelector,
       final Function2<TSource, TInner, TResult> resultSelector,
       final EqualityComparer<TKey> comparer, final boolean generateNullsOnLeft,
-      final boolean generateNullsOnRight) {
+      final boolean generateNullsOnRight, final Predicate2<TSource, TInner> predicate) {
     return new AbstractEnumerable<TResult>() {
       public Enumerator<TResult> enumerator() {
+        /**
+         * the innerToLookUp will refer the inner , if current join
+         * is a right join, we should figure out the right list first, if
+         * not, then keep the original inner here.
+         */
+        final Enumerable<TInner> innerToLookUp = generateNullsOnLeft
+            ? Linq4j.asEnumerable(inner.toList())
+            : inner;
+
         final Lookup<TKey, TInner> innerLookup =
             comparer == null
-                ? inner.toLookup(innerKeySelector)
-                : inner.toLookup(innerKeySelector, comparer);
+                ? innerToLookUp.toLookup(innerKeySelector)
+                : innerToLookUp
+                    .toLookup(innerKeySelector, comparer);
 
         return new Enumerator<TResult>() {
           Enumerator<TSource> outers = outer.enumerator();
           Enumerator<TInner> inners = Linq4j.emptyEnumerator();
-          Set<TKey> unmatchedKeys =
+          List<TInner> innersUnmatched =
               generateNullsOnLeft
-                  ? new HashSet<>(innerLookup.keySet())
+                  ? new ArrayList<>(innerToLookUp.toList())
                   : null;
 
           public TResult current() {
@@ -1091,27 +1125,18 @@ public abstract class EnumerableDefaults {
                 return true;
               }
               if (!outers.moveNext()) {
-                if (unmatchedKeys != null) {
-                  // We've seen everything else. If we are doing a RIGHT or FULL
-                  // join (leftNull = true) there are any keys which right but
-                  // not the left.
-                  List<TInner> list = new ArrayList<>();
-                  for (TKey key : unmatchedKeys) {
-                    for (TInner tInner : innerLookup.get(key)) {
-                      list.add(tInner);
-                    }
-                  }
-                  inners = Linq4j.enumerator(list);
+                if (innersUnmatched != null) {
+                  inners = Linq4j.enumerator(new ArrayList<>(innersUnmatched));
                   outers.close();
                   outers = Linq4j.singletonNullEnumerator();
                   outers.moveNext();
-                  unmatchedKeys = null; // don't do the 'leftovers' again
+                  innersUnmatched = null; // don't do the 'leftovers' again
                   continue;
                 }
                 return false;
               }
               final TSource outer = outers.current();
-              final Enumerable<TInner> innerEnumerable;
+              Enumerable<TInner> innerEnumerable;
               if (outer == null) {
                 innerEnumerable = null;
               } else {
@@ -1119,10 +1144,25 @@ public abstract class EnumerableDefaults {
                 if (outerKey == null) {
                   innerEnumerable = null;
                 } else {
-                  if (unmatchedKeys != null) {
-                    unmatchedKeys.remove(outerKey);
-                  }
                   innerEnumerable = innerLookup.get(outerKey);
+                  //apply predicate to filter per-row
+                  if (innerEnumerable != null && innerEnumerable.any()) {
+                    List<TInner> innersToFilter = innerEnumerable.toList();
+                    List<TInner> matchedInners = new ArrayList<>(
+                        innersToFilter);
+                    if (predicate != null) {
+
+                      for (TInner inner : innersToFilter) {
+                        if (!predicate.apply(outer, inner)) {
+                          matchedInners.remove(inner);
+                        }
+                      }
+                      innerEnumerable = Linq4j.asEnumerable(matchedInners);
+                    }
+                    if (innersUnmatched != null) {
+                      innersUnmatched.removeAll(matchedInners);
+                    }
+                  }
                 }
               }
               if (innerEnumerable == null
